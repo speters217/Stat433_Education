@@ -1,0 +1,23 @@
+---
+title: "Education Project"
+author: "Anna Hayes, Makayla Hayes, Samuel Peters, Marissa Schladweiler"
+date: "3/24/2021"
+output: pdf_document
+---
+
+```{r, echo=FALSE}
+library("readr")
+library("dplyr")
+library("ggplot2")
+```
+
+```{r}
+# More information about our data can be found at https://edopportunity.org/get-the-data/seda-archive-downloads/
+
+# Test scores by state (math and reading separate), grouped by race, gender, economically disadvantaged, gender, etc.
+# Original link: https://stacks.stanford.edu/file/druid:db586ns4974/seda_state_poolsub_gcs_4.0.csv
+state_gcs_sub = read_csv("state_gcs_sub.csv")
+# State information with percentage of each race, percentage of rural/urban/town, etc.
+# Original link: https://stacks.stanford.edu/file/druid:db586ns4974/seda_cov_state_pool_4.0.csv
+state_info = read_csv("state_info.csv")
+```
