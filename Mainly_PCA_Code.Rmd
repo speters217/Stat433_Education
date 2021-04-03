@@ -1,0 +1,127 @@
+---
+title: "Mainly PCA"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ISLR)
+library(pls)
+library(glmnet)
+library(RColorBrewer)
+library(coefplot)
+```
+
+Note that all the below code only focused on math test scores. We could either do math and reading separate or just used the dataset that pools math and reading together (that will be a very easy switch if we do decide to pool them). The dataset that is the same as ours but also pools by subject is seda_state_pool_gcs_4.0.
+```{r}
+# Official Data
+state_gcs_sub = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_state_poolsub_gcs_4.0.csv")
+state_info = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_cov_state_pool_4.0.csv")
+state_gcs_sub
+state_info 
+```
+
+```{r}
+# Arranging math scores from highest to lowest for each state for comparison with other variables (just by looking at data)
+state_gcs_sub %>% filter(subcat == "all") %>% 
+  inner_join(state_info, by = "stateabb") %>%
+  arrange(gcs_mn_avg_mth_ol)
+```
+Just by manually looking at the above data, I notice the following trends:
+* Higher percent of whites (asian?) in state have higher test scores; Higher percent of other races in state have lower test scores
+* Higher percent of ECD in state have lower test scores
+* More people on free/reduced lunch mean lower test scores
+* Lower SES composite in state leads to lower test scores
+* Possibly higher hswhtblk/rswhtblk means lower scores? (less obvious)
+
+```{r}
+# Joining the two datasets and selected only the most "important" variables to include in the dataset (can add more later if we want)
+# This is the data used for essentially all the code below
+state_info_condensed = state_info %>% 
+  select(c(1:11, 14, 17:26, 47:51))
+state_gcs_mini = state_gcs_sub %>% filter(subcat == "all") %>% 
+  select(c("fips", "stateabb", "gcs_mn_avg_mth_ol")) %>%
+  inner_join(state_info_condensed, by = c("fips", "stateabb"))
+```
+
+
+```{r}
+# lm Model, excluding fips and stateabb in the model since thats not important
+model = lm(gcs_mn_avg_mth_ol ~ ., data = state_gcs_mini[, -c(1,2)])
+summary(model)
+```
+Note all the highly insignificant pvalues above because of our multicollinearity. We have multicollinearity since, for example, we have a separate column for the percent of each race in the state which are clearly all very correlated since all the proportions would add roughly to 1.
+
+
+
+```{r fig.height=7}
+# Principal Component Analysis (PCA) and plot
+state_gcs_mini_PCA = state_gcs_mini %>% unite("fip_state", c(fips,stateabb)) %>%
+  column_to_rownames("fip_state")
+state_gcs_mini_PCA = state_gcs_mini_PCA[-52,]
+
+set.seed(1000)
+pcr_model = prcomp(state_gcs_mini_PCA, scale=TRUE)
+summary(pcr_model)
+biplot(pcr_model,scale=0, cex=.7)
+```
+The interpretation for this plot (I think) is that notice the arrow for math test scores is pointing downward. Therefore, any other variable pointing downwards indicates a positive correlation (hence SES composite, percent white, etc.). Meanwhile, the arrows pointing the opposite direction indicate that those variables are negatively correlated with math test scores (hence percent economically disadvantages, percent black, percent free lunch are most obvious). *** Note that these trends follow what was originally found just by manually examining the data, so thats a good sign.
+
+The regions csv data came from this link: https://www.kaggle.com/omer2040/usa-states-to-region so youll have to download it.
+```{r fig.height=7, fig.width=5}
+# The same PCA but now making it so we can color the plot according to which region theUS state is located
+library(devtools)
+install_github("vqv/ggbiplot")
+library(ggbiplot)
+us_regions = read.csv("/Users/mschladweiler/Documents/Senior/Semester 2/Stat 433/Group Project/states.csv")
+
+# Adding the region data to our data for this part
+state_gcs_mini_PCA2 = state_gcs_mini[-52,-1] %>%
+  inner_join(select(us_regions, stateabb = State.Code, Region), by = "stateabb")
+# Making each state as the row name
+state_gcs_mini_PCA2 = state_gcs_mini_PCA2 %>% 
+  column_to_rownames("stateabb")
+
+# PCA and plot by region
+set.seed(1000)
+pcr_model2 = prcomp(state_gcs_mini_PCA2[,-27], scale=TRUE)
+summary(pcr_model2)
+ggbiplot(pcr_model2, ellipse=TRUE,  labels=rownames(state_gcs_mini_PCA2), groups=state_gcs_mini_PCA2[,27])+
+  theme(legend.position="bottom")
+```
+From the plot above, we are seeing the South consistently has lower test scores than any other region. Other regional patterns are harder to describe but you can note them above.
+
+
+
+The following is just an example code from online at the URL https://cmdlinetips.com/2019/04/introduction-to-pca-with-r-using-prcomp/ to help build the PCA above
+```{r}
+# gapminder_w_url <- "https://bit.ly/2vEDq5b"
+# # read the data into dataframe
+# gapminder_wide <- read_csv(gapminder_w_url)
+# # first3 rows
+# head(gapminder_wide, n=3)
+# gapminder_life <- gapminder_wide %>%
+#   filter(continent %in% c("Africa","Europe")) %>%
+#   select(continent,country,starts_with('lifeExp'))
+# gapminder_life <- gapminder_life %>% 
+#   unite("continent_country", c(continent,country)) %>%
+#   column_to_rownames("continent_country")
+# pca_res <- prcomp(gapminder_life, scale=TRUE)
+# summary(pca_res)
+# pca_res$x[,1:3]
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
