@@ -16,42 +16,40 @@ library(coefplot)
 Note that all the below code only focused on math test scores. We could either do math and reading separate or just used the dataset that pools math and reading together (that will be a very easy switch if we do decide to pool them). The dataset that is the same as ours but also pools by subject is seda_state_pool_gcs_4.0.
 ```{r}
 # Official Data
-state_gcs_sub = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_state_poolsub_gcs_4.0.csv")
+test_data = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_state_poolsub_gcs_4.0.csv")
 state_info = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_cov_state_pool_4.0.csv")
-state_gcs_sub
-state_info 
 ```
 
 ```{r}
 state_info_condensed = state_info %>% 
   select(c(1:11, 14, 17:26, 47:51))
-state_gcs_mini = state_gcs_sub %>% filter(subcat == "all") %>% 
+test_state_data_mth = test_data %>% filter(subcat == "all") %>% 
   select(c("fips", "stateabb", "gcs_mn_avg_mth_ol")) %>%
   inner_join(state_info_condensed, by = c("fips", "stateabb"))
+
+# Train vs Test
+set.seed(1000)
+train <- test_state_data_mth[1:35, -c(1,2)]
+y_test <- test_state_data_mth[36:51,]$gcs_mn_avg_mth_ol
+test <- test_state_data_mth[36:51, 4:28]
 ```
 
 NOTE THAT THIS PCA USES A DIFFERENT PCA FUNCTION THAN THE OTHER CODE "Mainly_PCA_Code". I think that the code in the other document is much better. This was just a rough try at it when I first tried it and did predictions.
 ```{r}
 ## PCR FOR PREDICTION
 
-# Train vs Test
-set.seed(1000)
-train <- state_gcs_mini[1:35, -c(1,2)]
-y_test <- state_gcs_mini[36:51,]$gcs_mn_avg_mth_ol
-test <- state_gcs_mini[36:51, 4:28]
-
 # Building Model
-pcr_model <- pcr(gcs_mn_avg_mth_ol~., data = train, scale =TRUE, validation = "CV")
-summary(pcr_model)
-validationplot(pcr_model)
-validationplot(pcr_model, val.type="MSEP")
-validationplot(pcr_model, val.type = "R2")
+pcr_model_pred <- pcr(gcs_mn_avg_mth_ol~., data = train, scale =TRUE, validation = "CV")
+summary(pcr_model_pred)
+validationplot(pcr_model_pred)
+validationplot(pcr_model_pred, val.type="MSEP")
+validationplot(pcr_model_pred, val.type = "R2")
 
 # Prediction for Training
-pcr_pred2 <- predict(pcr_model, train[,2:26], ncomp = 8)
+pcr_pred2 <- predict(pcr_model_pred, train[,2:26], ncomp = 8)
 mean((pcr_pred2 - train$gcs_mn_avg_mth_ol)^2)
 # Prediction for Test
-pcr_pred <- predict(pcr_model, test, ncomp = 8)
+pcr_pred <- predict(pcr_model_pred, test, ncomp = 8)
 mean((pcr_pred - y_test)^2)
 ```
 Only 6.1% prediction error for training data. 8.3% prediction error for test data
