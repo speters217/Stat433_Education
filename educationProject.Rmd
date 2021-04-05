@@ -8,6 +8,7 @@ output: pdf_document
 ```{r, echo=FALSE}
 library("readr")
 library("dplyr")
+library("tidyr")
 library("ggplot2")
 ```
 
@@ -15,9 +16,98 @@ library("ggplot2")
 # More information about our data can be found at https://edopportunity.org/get-the-data/seda-archive-downloads/
 
 # Test scores by state (math and reading separate), grouped by race, gender, economically disadvantaged, gender, etc.
-# Original link: https://stacks.stanford.edu/file/druid:db586ns4974/seda_state_poolsub_gcs_4.0.csv
+#state_gcs_sub = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_state_poolsub_gcs_4.0.csv")
 state_gcs_sub = read_csv("state_gcs_sub.csv")
+
 # State information with percentage of each race, percentage of rural/urban/town, etc.
-# Original link: https://stacks.stanford.edu/file/druid:db586ns4974/seda_cov_state_pool_4.0.csv
+#state_info = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_cov_state_pool_4.0.csv")
 state_info = read_csv("state_info.csv")
+```
+```{r}
+# Very little racial data is recorded for Puerto Rico
+# We'll also remove Washington DC so we're left with the 50 states
+state_gcs_sub = state_gcs_sub %>% 
+  filter(stateabb != "PR" & stateabb != "DC")
+
+state_info = state_info %>% 
+  filter(stateabb != "PR" & stateabb != "DC")
+```
+
+```{r}
+# Create and write dataset of test scores by race
+
+# Note that we won't include data for Native Americans since the test data is missing
+race = state_gcs_sub %>% 
+  filter(subcat == "race", 
+         subgroup %in% c("asn", "blk", "hsp", "mtr", "wht")) %>% 
+  select(stateabb, subgroup, gcs_mn_avg_mth_ol, gcs_mn_avg_rla_ol) %>% 
+  rename(State = "stateabb",
+          Race = "subgroup",
+          Math_Score = "gcs_mn_avg_mth_ol",
+          RLA_Score = "gcs_mn_avg_rla_ol") %>% 
+  mutate(Average_Score = (Math_Score + RLA_Score) / 2)
+
+# Multiracial data is not recorded in Montana nor in Hawaii
+race = race[-which(is.na(race$Math_Score)),]
+
+# Expand the abbreviations of races
+from = c("asn", "blk", "hsp", "mtr", "wht")
+to = c("Asian", "Black", "Hispanic", "Multiracial", "White")
+raceCol = which(names(race) == "Race")
+for (i in 1:length(from)) {
+  race[which(race$Race == from[i]), raceCol] = to[i]
+}
+
+write_csv(race, "./data/race.csv")
+```
+
+```{r}
+# Create and write dataset of test scores by gender status
+
+gender = state_gcs_sub %>% 
+  filter(subcat == "gender",
+         subgroup == "fem" | subgroup == "mal") %>% 
+  select(stateabb, subgroup, gcs_mn_avg_mth_ol, gcs_mn_avg_rla_ol)%>% 
+  rename(State = "stateabb",
+          Gender = "subgroup",
+          Math_Score = "gcs_mn_avg_mth_ol",
+          RLA_Score = "gcs_mn_avg_rla_ol") %>% 
+  mutate(Average_Score = (Math_Score + RLA_Score) / 2)
+
+# Expand the abbreviations of genders
+gender[which(gender$Gender == "fem"), which(names(gender) == "Gender")] = "Female"
+gender[which(gender$Gender == "mal"), which(names(gender) == "Gender")] = "Male"
+
+write_csv(gender, "./data/gender.csv")
+```
+
+```{r}
+# Create and write dataset of test scores by socioeconomic status
+socioeconomic_info = state_info %>% 
+  select(stateabb, sesavgall)
+
+socioeconomic = state_gcs_sub %>% 
+  filter(subcat == "all") %>% 
+  select(stateabb, gcs_mn_avg_mth_ol, gcs_mn_avg_rla_ol)%>% 
+  left_join(socioeconomic_info, by = "stateabb") %>% 
+  rename(State = "stateabb",
+          Math = "gcs_mn_avg_mth_ol",
+          RLA = "gcs_mn_avg_rla_ol",
+          Socioeconomic_Status = "sesavgall") %>% 
+  pivot_longer(c(Math, RLA), names_to = "Test", values_to = "Score")
+
+write_csv(socioeconomic, "./data/socioeconomic.csv")
+```
+
+```{r}
+# Generate data for choropleth map
+state_info_condensed = state_info %>% 
+  select(c(1:11, 14, 17:26, 47:51))
+
+test_state_data_mth_rla = state_gcs_sub %>% 
+  filter(subcat == "all") %>% 
+  select(c("fips", "stateabb", "gcs_mn_avg_mth_ol", "gcs_mn_avg_rla_ol")) %>%
+  inner_join(state_info_condensed, by = c("fips", "stateabb"))
+
+write_csv(test_state_data_mth_rla, "./data/state_data.csv")
 ```
