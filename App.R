@@ -1,4 +1,5 @@
 library("shiny")
+library("readr")
 library("ggplot2")
 library("dplyr")
 library("plotly")
@@ -58,6 +59,9 @@ server <- function(input, output) {
         add_trace(
           data = state_data,
           z = state_data$gcs_mn_avg_mth_ol,
+          colorscale="Viridis",
+          zmin = 4.47,
+          zmax = 6.73,
           # Create tooltip
           text = paste("%White:", state_data$perwht,
                        "\n%Hispanic:", state_data$perhsp,
@@ -68,7 +72,9 @@ server <- function(input, output) {
           locations = state_data$stateabb, 
           locationmode = 'USA-states'
         ) %>%
-        layout(geo = g)
+        config(displayModeBar = FALSE) %>% 
+        layout(geo = g, dragmode = FALSE, xaxis = list(fixedrange = TRUE),
+               yaxis = list(fixedrange = TRUE))
     # Plot RLA scores
     } else {
       # Fill in map with RLA scores
@@ -76,6 +82,9 @@ server <- function(input, output) {
         add_trace(
           data = state_data,
           z = state_data$gcs_mn_avg_rla_ol,
+          colorscale="Viridis",
+          zmin = 4.47,
+          zmax = 6.73,
           # Create tooltip
           text = paste("%White:", state_data$perwht,
                        "\n%Hispanic:", state_data$perhsp,
@@ -86,7 +95,9 @@ server <- function(input, output) {
           locations = state_data$stateabb, 
           locationmode = 'USA-states'
         ) %>%
-        layout(geo = g)
+        config(displayModeBar = FALSE) %>% 
+        layout(geo = g, dragmode = FALSE, xaxis = list(fixedrange = TRUE),
+               yaxis = list(fixedrange = TRUE))
     }
   })
   
@@ -98,12 +109,16 @@ server <- function(input, output) {
       # Plot math scores
       if (input$test == "Math") {
         plot = ggplot(race, aes(x = Math_Score, y = State, col = Race)) + 
+          xlim(2.929, 9.03) +
           geom_point(alpha = 0.6, size = 5) +
+          geom_vline(xintercept = 5.5, alpha = 0.5, col = "red") +
           theme_minimal()
       # Plot RLA scores
       } else {
         plot = ggplot(race, aes(x = RLA_Score, y = State, col = Race)) +
+          xlim(2.929, 9.03) +
           geom_point(alpha = 0.6, size = 5) +
+          geom_vline(xintercept = 5.5, alpha = 0.5, col = "red") +
           theme_minimal()
       }
     # Plot scores by Gender
@@ -111,18 +126,23 @@ server <- function(input, output) {
       # Plot math scores
       if (input$test == "Math") {
         plot = ggplot(gender, aes(x = Math_Score, y = State, col = Gender)) +
+          xlim(4.022, 7.241) +
           geom_point(alpha = 0.6, size = 5) +
+          geom_vline(xintercept = 5.5, alpha = 0.5, col = "red") +
           theme_minimal()
       # Plot RLA scores
       } else {
         plot = ggplot(gender, aes(x = RLA_Score, y = State, col = Gender)) +
+          xlim(4.022, 7.241) +
           geom_point(alpha = 0.6, size = 5) +
+          geom_vline(xintercept = 5.5, alpha = 0.5, col = "red") +
           theme_minimal()
       }
     # Plot scores by socioeconomic status
     } else {
       plot = ggplot(socioeconomic, aes(x = Socioeconomic_Status, y = Score, name = State, col = Test)) +
         geom_point(alpha = 0.6, size = 5) +
+        geom_hline(yintercept = 5.5, alpha = 0.5, col = "red") +
         theme_minimal() +
         labs(
           x = "Average Socioeconomic Status",
@@ -130,7 +150,10 @@ server <- function(input, output) {
           color = "Test")
     }
     
-    ggplotly(plot, height = 400)
+    ggplotly(plot, height = 400) %>% 
+      config(displayModeBar = FALSE) %>% 
+      layout(xaxis=list(fixedrange=TRUE),
+             yaxis=list(fixedrange=TRUE))
   })
   
 }
