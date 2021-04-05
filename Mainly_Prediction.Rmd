@@ -1,0 +1,101 @@
+---
+title: "Mainly Prediction"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ISLR)
+library(pls)
+library(glmnet)
+library(RColorBrewer)
+library(coefplot)
+```
+
+Note that all the below code only focused on math test scores. We could either do math and reading separate or just used the dataset that pools math and reading together (that will be a very easy switch if we do decide to pool them). The dataset that is the same as ours but also pools by subject is seda_state_pool_gcs_4.0.
+```{r}
+# Official Data
+test_data = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_state_poolsub_gcs_4.0.csv")
+state_info = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_cov_state_pool_4.0.csv")
+```
+
+```{r}
+state_info_condensed = state_info %>% 
+  select(c(1:11, 14, 17:26, 47:51))
+test_state_data_mth = test_data %>% filter(subcat == "all") %>% 
+  select(c("fips", "stateabb", "gcs_mn_avg_mth_ol")) %>%
+  inner_join(state_info_condensed, by = c("fips", "stateabb"))
+
+# Train vs Test
+set.seed(1000)
+train <- test_state_data_mth[1:35, -c(1,2)]
+y_test <- test_state_data_mth[36:51,]$gcs_mn_avg_mth_ol
+test <- test_state_data_mth[36:51, 4:28]
+```
+
+NOTE THAT THIS PCA USES A DIFFERENT PCA FUNCTION THAN THE OTHER CODE "Mainly_PCA_Code". I think that the code in the other document is much better. This was just a rough try at it when I first tried it and did predictions.
+```{r}
+## PCR FOR PREDICTION
+
+# Building Model
+pcr_model_pred <- pcr(gcs_mn_avg_mth_ol~., data = train, scale =TRUE, validation = "CV")
+summary(pcr_model_pred)
+validationplot(pcr_model_pred)
+validationplot(pcr_model_pred, val.type="MSEP")
+validationplot(pcr_model_pred, val.type = "R2")
+
+# Prediction for Training
+pcr_pred2 <- predict(pcr_model_pred, train[,2:26], ncomp = 8)
+mean((pcr_pred2 - train$gcs_mn_avg_mth_ol)^2)
+# Prediction for Test
+pcr_pred <- predict(pcr_model_pred, test, ncomp = 8)
+mean((pcr_pred - y_test)^2)
+```
+Only 6.1% prediction error for training data. 8.3% prediction error for test data
+
+
+```{r}
+## LASSO FOR PREDICTION
+set.seed(1000)
+# Lasso Regression Coefficient Plot
+state.lasso = glmnet(data.matrix(train[,2:26]), data.matrix(train$gcs_mn_avg_mth_ol), alpha = 1)
+mypalette <- brewer.pal(6,"Set1")
+plot(state.lasso, xvar = "lambda", label=TRUE, lwd=1, col=mypalette); 
+abline(h=0, lwd=1, lty=2, col="grey")
+title("Coefficient Plot", line = 2.5)
+# CV Plot
+state.lasso.cv <- cv.glmnet(data.matrix(train[,2:26]), data.matrix(train$gcs_mn_avg_mth_ol), nfold=10)
+plot(state.lasso.cv)
+title("Cross-Validation Plot", line = 2.5)
+
+# Finding significant predictors using lambda.min
+slope_lasso <- coef(state.lasso.cv, s = "lambda.min")[-1,]
+selected_min <- which(slope_lasso!=0)
+state.lasso.cv$lambda.min
+selected_min
+
+# Predictions using lambda.min
+min_model = glmnet(data.matrix(train[,2:26]), data.matrix(train$gcs_mn_avg_mth_ol), alpha = 1, 
+                   lambda = state.lasso.cv$lambda.min)
+# Training Prediction Error
+lasso_pred_train = predict(min_model, s = state.lasso.cv$lambda.min, newx = data.matrix(train[,2:26])) 
+mean((lasso_pred_train - train$gcs_mn_avg_mth_ol)^2)
+# Test Prediction Error
+lasso_pred_test = predict(min_model, s = state.lasso.cv$lambda.min, newx = data.matrix(test)) 
+mean((lasso_pred_test - y_test)^2)
+```
+Only 6.5% prediction error for training data. 7.5% for test data
+
+
+
+
+
+
+
+
+
+
+
+
+
