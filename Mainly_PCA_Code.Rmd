@@ -230,19 +230,22 @@ varimax(pcr_model$rotation[, 1:5])
 ```{r}
 # PCA using tidymodels
 
+# Remove PR since it is missing a lot of racial data
+# We won't need fips codes either
 test_state_PCA_mth = test_state_data_mth %>% 
   filter(stateabb != "PR") %>%  #& stateabb != "DC") %>% 
   select(-fips)
 
+# Create recipe for the pca
 pca_rec <- recipe(~., data = test_state_PCA_mth) %>%
   update_role(stateabb, gcs_mn_avg_mth_ol, new_role = "id") %>%
   step_normalize(all_predictors()) %>% # Probably don't need this step
   step_pca(all_predictors())
 
+# Actually perform the pca
 pca_prep <- prep(pca_rec)
 
-
-
+# Calculate sd and variation
 sdev <- pca_prep$steps[[2]]$res$sdev
 
 percent_variation <- sdev^2 / sum(sdev^2)
@@ -251,12 +254,13 @@ var_df <- data.frame(PC=paste0("PC",1:length(sdev)),
                      var_explained=percent_variation,
                      stringsAsFactors = FALSE)
 
+# Plot the variation explained by each PC
 var_df %>%
   mutate(PC = fct_inorder(PC)) %>%
   ggplot(aes(x=PC,y=var_explained))+geom_col()
 
 
-
+# Plot the composition of the top 5 PCs
 tidied_pca <- tidy(pca_prep, 2)
 
 tidied_pca %>%
@@ -267,6 +271,7 @@ tidied_pca %>%
     facet_wrap(~component, nrow = 1) +
     labs(y = NULL)
 
+# Re-plot, but order by decreasing absolute value
 tidied_pca %>%
   filter(component %in% paste0("PC", 1:5)) %>%
   mutate(terms = reorder_within(terms, abs(value), component)) %>% 
@@ -277,6 +282,7 @@ ggplot(aes(value, terms, fill = terms)) +
   labs(y = NULL) +
   theme(axis.text = element_text(size = 7))
 
+# Plot the first two PCs and color by the math scores
 # Note that pca_prep$template is equivalent to juice(pca_prep)
 ggplot(pca_prep$template, aes(x = PC1, y = PC2)) +
   geom_point(aes(col = gcs_mn_avg_mth_ol), alpha = 0.75, size = 1.5) +
