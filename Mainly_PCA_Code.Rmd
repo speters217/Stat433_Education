@@ -58,7 +58,6 @@ Note all the highly insignificant pvalues above because of our multicollinearity
 test_state_PCA_mth = test_state_data_mth %>%
   column_to_rownames("stateabb")
 test_state_PCA_mth = test_state_PCA_mth[-52,-1]
-
 set.seed(1000)
 pcr_model_mth = prcomp(test_state_PCA_mth, scale=TRUE)
 summary(pcr_model_mth)
@@ -72,15 +71,13 @@ The regions csv data came from this link: https://www.kaggle.com/omer2040/usa-st
 # library(devtools)
 # install_github("vqv/ggbiplot")
 library(ggbiplot)
-us_regions = read.csv("/Users/mschladweiler/Documents/Senior/Semester 2/Stat 433/Group Project/states.csv")
-
+us_regions = read.csv("./states.csv")
 # Adding the region data to our data for this part
 test_state_PCA_mth2 = test_state_data_mth[-52,-1] %>%
   inner_join(select(us_regions, stateabb = State.Code, Region), by = "stateabb")
 # Making each state as the row name
 test_state_PCA_mth2 = test_state_PCA_mth2 %>% 
   column_to_rownames("stateabb")
-
 # PCA and plot by region for math
 set.seed(1000)
 pcr_model_mth2 = prcomp(test_state_PCA_mth2[,-26], scale=TRUE)
@@ -122,7 +119,6 @@ test_state_data_rla = test_data %>% filter(subcat == "all") %>%
 test_state_PCA_rla = test_state_data_rla %>%
   column_to_rownames("stateabb")
 test_state_PCA_rla = test_state_PCA_rla[-52,-1]
-
 set.seed(1000)
 pcr_model_rla = prcomp(test_state_PCA_rla, scale=TRUE)
 summary(pcr_model_rla)
@@ -134,15 +130,13 @@ biplot(pcr_model_rla,scale=0, cex=.7)
 # library(devtools)
 # install_github("vqv/ggbiplot")
 library(ggbiplot)
-us_regions = read.csv("/Users/mschladweiler/Documents/Senior/Semester 2/Stat 433/Group Project/states.csv")
-
+us_regions = read.csv("./states.csv")
 # Adding the region data to our data for this part
 test_state_PCA_rla2 = test_state_data_rla[-52,-1] %>%
   inner_join(select(us_regions, stateabb = State.Code, Region), by = "stateabb")
 # Making each state as the row name
 test_state_PCA_rla2 = test_state_PCA_rla2 %>% 
   column_to_rownames("stateabb")
-
 # PCA and plot by region for rla 
 set.seed(1000)
 pcr_model_rla2 = prcomp(test_state_PCA_rla2[,-26], scale=TRUE)
@@ -180,13 +174,11 @@ summary(lm_model)
 test_state_PCA = test_state_data %>%
   column_to_rownames("stateabb")
 test_state_PCA = test_state_PCA[-52,c(-1,-2)]
-
 set.seed(1000)
 pcr_model = prcomp(test_state_PCA, scale=TRUE)
 summary(pcr_model)
 pcr_model$x
 biplot(pcr_model, scale=0, cex=.7)
-
 # Determining number of components
 pcr_model$sdev^2
 screeplot(pcr_model, type="line")
@@ -196,15 +188,13 @@ First 10 principal components give 95% variability. Otherwise Kaiser's criteria 
 ```{r}
 # The same PCA but now making it so we can color the plot according to which region the US state is located
 library(ggbiplot)
-us_regions = read.csv("/Users/mschladweiler/Documents/Senior/Semester 2/Stat 433/Group Project/states.csv")
-
+us_regions = read.csv("./states.csv")
 # Adding the region data to our data for this part
 test_state_PCA2 = test_state_data[-52,-1] %>%
   inner_join(select(us_regions, stateabb = State.Code, Region), by = "stateabb")
 # Making each state as the row name
 test_state_PCA2 = test_state_PCA2 %>% 
   column_to_rownames("stateabb")
-
 # PCA and plot by region for pooled data
 set.seed(1000)
 pcr_model2 = prcomp(test_state_PCA2[,c(-1,-26)], scale=TRUE)
@@ -237,8 +227,59 @@ varimax(pcr_model$rotation[, 1:5])
 ```
 
 
+```{r}
+# PCA using tidymodels
+
+test_state_PCA_mth = test_state_data_mth %>% 
+  filter(stateabb != "PR") %>%  #& stateabb != "DC") %>% 
+  select(-fips)
+
+pca_rec <- recipe(~., data = test_state_PCA_mth) %>%
+  update_role(stateabb, gcs_mn_avg_mth_ol, new_role = "id") %>%
+  step_normalize(all_predictors()) %>% # Probably don't need this step
+  step_pca(all_predictors())
+
+pca_prep <- prep(pca_rec)
 
 
 
+sdev <- pca_prep$steps[[2]]$res$sdev
+
+percent_variation <- sdev^2 / sum(sdev^2)
+
+var_df <- data.frame(PC=paste0("PC",1:length(sdev)),
+                     var_explained=percent_variation,
+                     stringsAsFactors = FALSE)
+
+var_df %>%
+  mutate(PC = fct_inorder(PC)) %>%
+  ggplot(aes(x=PC,y=var_explained))+geom_col()
 
 
+
+tidied_pca <- tidy(pca_prep, 2)
+
+tidied_pca %>%
+  filter(component %in% paste0("PC", 1:5)) %>%
+  mutate(component = fct_inorder(component)) %>%
+  ggplot(aes(value, terms, fill = terms)) +
+    geom_col(show.legend = FALSE) +
+    facet_wrap(~component, nrow = 1) +
+    labs(y = NULL)
+
+tidied_pca %>%
+  filter(component %in% paste0("PC", 1:5)) %>%
+  mutate(terms = reorder_within(terms, abs(value), component)) %>% 
+ggplot(aes(value, terms, fill = terms)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ component, scales = "free_y", nrow = 1) +
+  scale_y_reordered() +
+  labs(y = NULL) +
+  theme(axis.text = element_text(size = 7))
+
+# Note that pca_prep$template is equivalent to juice(pca_prep)
+ggplot(pca_prep$template, aes(x = PC1, y = PC2)) +
+  geom_point(aes(col = gcs_mn_avg_mth_ol), alpha = 0.75, size = 1.5) +
+  geom_text_repel(aes(label = stateabb), size = 3) +
+  scale_color_viridis_c(option = "magma")
+```
