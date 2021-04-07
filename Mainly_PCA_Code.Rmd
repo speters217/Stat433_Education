@@ -229,6 +229,9 @@ varimax(pcr_model$rotation[, 1:5])
 
 ```{r}
 # PCA using tidymodels
+library("tidymodels")
+library("tidytext")
+library("ggrepel")
 
 # Remove PR since it is missing a lot of racial data
 # We won't need fips codes either
