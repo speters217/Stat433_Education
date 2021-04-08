@@ -7,12 +7,12 @@ library("plotly")
 # Load in datasets and order if required
 # Order by average combined math & RLA score
 race = read_csv("./data/race.csv") %>% 
-  arrange(desc(Average_Score)) %>% 
+  arrange(desc(Total_Score)) %>% 
   mutate_at(vars(State), list(~factor(., levels=unique(.))))
 
 # Order by average combined math & RLA score
 gender = read_csv("./data/gender.csv") %>% 
-  arrange(desc(Average_Score)) %>% 
+  arrange(desc(Total_Score)) %>% 
   mutate_at(vars(State), list(~factor(., levels=unique(.))))
 
 socioeconomic = read_csv("./data/socioeconomic.csv")

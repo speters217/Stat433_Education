@@ -47,6 +47,16 @@ race = state_gcs_sub %>%
           RLA_Score = "gcs_mn_avg_rla_ol") %>% 
   mutate(Average_Score = (Math_Score + RLA_Score) / 2)
 
+# Get the average combined score for all races
+# We will only use this value to sort the data
+race = state_gcs_sub %>% 
+  filter(subcat == "all") %>% 
+  select(stateabb, subgroup, gcs_mn_avg_mth_ol, gcs_mn_avg_rla_ol) %>% 
+  mutate(Total_Score = (gcs_mn_avg_mth_ol + gcs_mn_avg_rla_ol) / 2) %>% 
+  select(stateabb, Total_Score) %>% 
+  rename(State = "stateabb") %>% 
+  left_join(race, by = "State")
+
 # Multiracial data is not recorded in Montana nor in Hawaii
 race = race[-which(is.na(race$Math_Score)),]
 
@@ -73,6 +83,16 @@ gender = state_gcs_sub %>%
           Math_Score = "gcs_mn_avg_mth_ol",
           RLA_Score = "gcs_mn_avg_rla_ol") %>% 
   mutate(Average_Score = (Math_Score + RLA_Score) / 2)
+
+# Get the average combined score for all genders
+# We will only use this value to sort the data
+gender = state_gcs_sub %>% 
+  filter(subcat == "all") %>% 
+  select(stateabb, subgroup, gcs_mn_avg_mth_ol, gcs_mn_avg_rla_ol) %>% 
+  mutate(Total_Score = (gcs_mn_avg_mth_ol + gcs_mn_avg_rla_ol) / 2) %>% 
+  select(stateabb, Total_Score) %>% 
+  rename(State = "stateabb") %>% 
+  left_join(gender, by = "State")
 
 # Expand the abbreviations of genders
 gender[which(gender$Gender == "fem"), which(names(gender) == "Gender")] = "Female"
