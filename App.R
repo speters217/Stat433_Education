@@ -54,53 +54,35 @@ server <- function(input, output) {
     
     # Plot math scores
     if (input$test == "Math") {
-      # Fill in map with math scores
-      plot_geo() %>%
-        add_trace(
-          data = state_data,
-          z = state_data$gcs_mn_avg_mth_ol,
-          colorscale="Viridis",
-          zmin = 4.47,
-          zmax = 6.73,
-          # Create tooltip
-          text = paste("White: ", 100 * round(state_data$perwht, 3), "%",
-                       "\nHispanic: ", 100 * round(state_data$perhsp, 3), "%",
-                       "\nBlack: ", 100 * round(state_data$perblk, 3), "%",
-                       "\nAsian: ", 100 * round(state_data$perasn, 3), "%",
-                       "\nSES: ", round(state_data$sesavgall, 3),
-                       sep = ""),
-          span = I(0),
-          locations = state_data$stateabb, 
-          locationmode = 'USA-states'
-        ) %>%
-        config(displayModeBar = FALSE) %>% 
-        layout(geo = g, dragmode = FALSE, xaxis = list(fixedrange = TRUE),
-               yaxis = list(fixedrange = TRUE))
+      z = state_data$gcs_mn_avg_mth_ol
     # Plot RLA scores
     } else {
-      # Fill in map with RLA scores
-      plot_geo() %>%
-        add_trace(
-          data = state_data,
-          z = state_data$gcs_mn_avg_rla_ol,
-          colorscale="Viridis",
-          zmin = 4.47,
-          zmax = 6.73,
-          # Create tooltip
-          text = paste("White: ", 100 * round(state_data$perwht, 3), "%",
-                       "\nHispanic: ", 100 * round(state_data$perhsp, 3), "%",
-                       "\nBlack: ", 100 * round(state_data$perblk, 3), "%",
-                       "\nAsian: ", 100 * round(state_data$perasn, 3), "%",
-                       "\nSES: ", round(state_data$sesavgall, 3),
-                       sep = ""),
-          span = I(0),
-          locations = state_data$stateabb, 
-          locationmode = 'USA-states'
-        ) %>%
-        config(displayModeBar = FALSE) %>% 
-        layout(geo = g, dragmode = FALSE, xaxis = list(fixedrange = TRUE),
-               yaxis = list(fixedrange = TRUE))
+      z = state_data$gcs_mn_avg_rla_ol
     }
+    
+    # Fill in map with desired scores
+    plot_geo() %>%
+      add_trace(
+        data = state_data,
+        z = z,
+        colorscale="Viridis",
+        zmin = 4.47,
+        zmax = 6.73,
+        # Create tooltip
+        text = paste("SES: ", round(state_data$sesavgall, 3),
+                     "\nWhite:\t", 100 * round(state_data$perwht, 3), "%",
+                     "\nHspn:\t", 100 * round(state_data$perhsp, 3), "%",
+                     "\nBlack:\t", 100 * round(state_data$perblk, 3), "%",
+                     "\nAsian:\t", 100 * round(state_data$perasn, 3), "%",
+                     sep = ""),
+        span = I(0),
+        locations = state_data$stateabb, 
+        locationmode = 'USA-states'
+      ) %>%
+      config(displayModeBar = FALSE) %>% 
+      layout(geo = g, dragmode = FALSE, xaxis = list(fixedrange = TRUE),
+             yaxis = list(fixedrange = TRUE))
+    
   })
   
   # Create the scatterplot of test scores
@@ -110,7 +92,7 @@ server <- function(input, output) {
     if (input$plot == "Race") {
       # Plot math scores
       if (input$test == "Math") {
-        plot = ggplot(race, aes(x = Math_Score, y = State, col = Race)) + 
+        plot = ggplot(race, aes(x = Math_Score, y = State, col = Race)) +
           xlim(2.929, 9.03) +
           geom_point(alpha = 0.6, size = 5) +
           geom_vline(xintercept = 5.5, alpha = 0.5, col = "red") +
@@ -142,7 +124,7 @@ server <- function(input, output) {
       }
     # Plot scores by socioeconomic status
     } else {
-      plot = ggplot(socioeconomic, aes(x = Socioeconomic_Status, y = Score, name = State, col = Test)) +
+      plot = ggplot(socioeconomic, aes(x = Socioeconomic_Status, y = Score, col = Test, name = State)) +
         geom_point(alpha = 0.6, size = 5) +
         geom_hline(yintercept = 5.5, alpha = 0.5, col = "red") +
         theme_minimal() +
@@ -152,7 +134,7 @@ server <- function(input, output) {
           color = "Test")
     }
     
-    ggplotly(plot, height = 400) %>% 
+    ggplotly(plot, height = 400, tooltip = c("x", "y", "State")) %>% 
       config(displayModeBar = FALSE) %>% 
       layout(xaxis=list(fixedrange=TRUE),
              yaxis=list(fixedrange=TRUE))
