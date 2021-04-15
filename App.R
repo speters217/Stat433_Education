@@ -22,23 +22,43 @@ state_data = read_csv("./data/state_data.csv")
 # Put two plots side-by-side with the inputs on the bottom
 ui <- fluidPage(
   
-  splitLayout(
-    plotlyOutput(outputId = "mapplot"),
-    
-    plotlyOutput(outputId = "scatterplot")
-  ),
+  HTML("<br><br><br>"),
   
-  splitLayout(
-    radioButtons(inputId = "test",
-                 label = "Test:",
-                 choices = c("Math", "RLA")
+  sidebarLayout(
+    sidebarPanel(
+      style = "position:fixed;width:inherit;",
+      
+      p("Select options to change the inputs of the plots."),
+      
+      radioButtons(inputId = "test",
+                   label = "Test:",
+                   choices = c("Math", "RLA")
+      ),
+      
+      radioButtons(inputId = "plot",
+                   label = "Factor",
+                   choices = c("Race", "Gender", "Socioeconomic")
+      )
     ),
     
-    radioButtons(inputId = "plot",
-                label = "Factor",
-                choices = c("Race", "Gender", "Socioeconomic")
+    mainPanel(
+      plotlyOutput(outputId = "mapplot"),
+      
+      p("States are filled by their average value for the selected test. Hover over a state to see its exact test 
+        score as well as socioeconomic score and racial composition. Note that data for Native Americans were 
+        removed due to insufficient state data."),
+      
+      plotlyOutput(outputId = "scatterplot"),
+      
+      HTML("<br><br><br><br><br><br>"),
+      
+      p("State test scores are plotted for the selected test and factor. Hover over a point 
+        to see its exact values. Click on values in the legend to display data for only certain groups. 
+        The red bar represents the expected average score of the standardized test (5.5).")
     )
+    
   )
+  
 )
 
 server <- function(input, output) {
@@ -81,7 +101,8 @@ server <- function(input, output) {
       ) %>%
       config(displayModeBar = FALSE) %>% 
       layout(geo = g, dragmode = FALSE, xaxis = list(fixedrange = TRUE),
-             yaxis = list(fixedrange = TRUE))
+             yaxis = list(fixedrange = TRUE),
+             title = "Scores, SES, and Racial Composition of States")
     
   })
   
@@ -96,14 +117,20 @@ server <- function(input, output) {
           xlim(2.929, 9.03) +
           geom_point(alpha = 0.6, size = 5) +
           geom_vline(xintercept = 5.5, alpha = 0.5, col = "red") +
-          theme_minimal()
+          theme_minimal() +
+          labs(
+            title = "Math Scores by State and Race"
+          )
       # Plot RLA scores
       } else {
         plot = ggplot(race, aes(x = RLA_Score, y = State, col = Race)) +
           xlim(2.929, 9.03) +
           geom_point(alpha = 0.6, size = 5) +
           geom_vline(xintercept = 5.5, alpha = 0.5, col = "red") +
-          theme_minimal()
+          theme_minimal() +
+          labs(
+            title = "RLA Scores by State and Race"
+          )
       }
     # Plot scores by Gender
     } else if(input$plot == "Gender") {
@@ -113,14 +140,20 @@ server <- function(input, output) {
           xlim(4.022, 7.241) +
           geom_point(alpha = 0.6, size = 5) +
           geom_vline(xintercept = 5.5, alpha = 0.5, col = "red") +
-          theme_minimal()
+          theme_minimal() +
+          labs(
+            title = "Math Scores by State and Gender"
+          )
       # Plot RLA scores
       } else {
         plot = ggplot(gender, aes(x = RLA_Score, y = State, col = Gender)) +
           xlim(4.022, 7.241) +
           geom_point(alpha = 0.6, size = 5) +
           geom_vline(xintercept = 5.5, alpha = 0.5, col = "red") +
-          theme_minimal()
+          theme_minimal() +
+          labs(
+            title = "RLA Scores by State and Gender"
+          )
       }
     # Plot scores by socioeconomic status
     } else {
@@ -129,12 +162,13 @@ server <- function(input, output) {
         geom_hline(yintercept = 5.5, alpha = 0.5, col = "red") +
         theme_minimal() +
         labs(
+          title = "Socioeceonomic Score vs. Test Score by State",
           x = "Average Socioeconomic Status",
           y = "Average Test Score",
           color = "Test")
     }
     
-    ggplotly(plot, height = 400, tooltip = c("x", "y", "State")) %>% 
+    ggplotly(plot, height = 500, tooltip = c("x", "y", "State")) %>% 
       config(displayModeBar = FALSE) %>% 
       layout(xaxis=list(fixedrange=TRUE),
              yaxis=list(fixedrange=TRUE))

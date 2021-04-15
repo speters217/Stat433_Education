@@ -41,7 +41,7 @@ race = state_gcs_sub %>%
   filter(subcat == "race", 
          subgroup %in% c("asn", "blk", "hsp", "mtr", "wht")) %>% 
   select(stateabb, subgroup, gcs_mn_avg_mth_ol, gcs_mn_avg_rla_ol) %>% 
-  rename(State = "stateabb",
+  dplyr::rename(State = "stateabb",
           Race = "subgroup",
           Math_Score = "gcs_mn_avg_mth_ol",
           RLA_Score = "gcs_mn_avg_rla_ol") %>% 
@@ -54,7 +54,7 @@ race = state_gcs_sub %>%
   select(stateabb, subgroup, gcs_mn_avg_mth_ol, gcs_mn_avg_rla_ol) %>% 
   mutate(Total_Score = (gcs_mn_avg_mth_ol + gcs_mn_avg_rla_ol) / 2) %>% 
   select(stateabb, Total_Score) %>% 
-  rename(State = "stateabb") %>% 
+  dplyr::rename(State = "stateabb") %>% 
   left_join(race, by = "State")
 
 # Multiracial data is not recorded in Montana nor in Hawaii
@@ -78,7 +78,7 @@ gender = state_gcs_sub %>%
   filter(subcat == "gender",
          subgroup == "fem" | subgroup == "mal") %>% 
   select(stateabb, subgroup, gcs_mn_avg_mth_ol, gcs_mn_avg_rla_ol)%>% 
-  rename(State = "stateabb",
+  dplyr::rename(State = "stateabb",
           Gender = "subgroup",
           Math_Score = "gcs_mn_avg_mth_ol",
           RLA_Score = "gcs_mn_avg_rla_ol") %>% 
@@ -91,7 +91,7 @@ gender = state_gcs_sub %>%
   select(stateabb, subgroup, gcs_mn_avg_mth_ol, gcs_mn_avg_rla_ol) %>% 
   mutate(Total_Score = (gcs_mn_avg_mth_ol + gcs_mn_avg_rla_ol) / 2) %>% 
   select(stateabb, Total_Score) %>% 
-  rename(State = "stateabb") %>% 
+  dplyr::rename(State = "stateabb") %>% 
   left_join(gender, by = "State")
 
 # Expand the abbreviations of genders
@@ -110,7 +110,7 @@ socioeconomic = state_gcs_sub %>%
   filter(subcat == "all") %>% 
   select(stateabb, gcs_mn_avg_mth_ol, gcs_mn_avg_rla_ol)%>% 
   left_join(socioeconomic_info, by = "stateabb") %>% 
-  rename(State = "stateabb",
+  dplyr::rename(State = "stateabb",
           Math = "gcs_mn_avg_mth_ol",
           RLA = "gcs_mn_avg_rla_ol",
           Socioeconomic_Status = "sesavgall") %>% 
