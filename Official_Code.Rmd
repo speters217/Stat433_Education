@@ -444,4 +444,5 @@ we can see a much stronger negative correlation. The notable outlier of HI befor
 other data. Looking at the composition of RC2 as compared to PC2, we see that SES_AvgAll has less of an 
 effect on RC2, with PerECD and PerFreeLunch having more of an overall effect. Notably, PerAsian, which 
 had a misleading effect in the linear models before we applied PCA, now has a smaller effect on RC2, which 
-likely contributes towards HI's more average value.
+likely contributes towards HI's more average value. PerWhite, which had almost no influence in PC2, is very 
+significant in RC2.
