@@ -1,8 +1,15 @@
-library("shiny")
-library("readr")
-library("ggplot2")
-library("dplyr")
-library("plotly")
+# Load/Install required packages
+packages = c("shiny", "readr", "ggplot2", "dplyr", "plotly")
+
+package.check <- lapply(
+  packages,
+  FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+      install.packages(x, dependencies = TRUE)
+      library(x, character.only = TRUE)
+    }
+  }
+)
 
 # Load in datasets and order if required
 # Order by average combined math & RLA score
