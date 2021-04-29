@@ -1,0 +1,165 @@
+---
+title: "Appendix"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ISLR)
+library(pls)
+library(glmnet)
+library(RColorBrewer)
+library(coefplot)
+library(car)
+library(psych)
+# library(devtools)
+# install_github("vqv/ggbiplot")
+library(ggbiplot)
+library(corrplot)
+```
+
+```{r}
+# Shiny App
+library(shiny)
+library("plotly")
+runGitHub("Stat433_Education", "speters217")
+```
+
+
+
+```{r message = FALSE}
+# Original pooled data to combine
+pooled_test_data = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_state_pool_gcs_4.0.csv")
+state_info = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_cov_state_pool_4.0.csv")
+```
+
+```{r}
+# Condensed pooled data
+state_info_condensed = state_info %>% 
+  select(c(1:11, 14, 17:26, 47:50))
+test_state_data = pooled_test_data %>% filter(subcat == "all") %>% 
+  select(c("fips", "stateabb", "gcs_mn_avg_ol")) %>%
+  inner_join(state_info_condensed, by = c("fips", "stateabb"))
+
+colnames(test_state_data) = c("fips","stateabb", "AvgTestScore","Urban","Suburb","Town","Rural","PerIndian", 
+                              "PerAsian", "PerHsp","PerBlk", "PerWht", "PerFreeLunch","TotEnroll", 
+                              "SegDevWhtBlk","SegDevWhtHsp","SegDevFreeLun","SegDevECD","DiffExpWhtBlk","DiffExpWhtHsp",
+                              "DiffExpFreeLun","DiffExpECD", "PerECD","SES_AvgAll","SES_AvgWht","SES_AvgBlk","SES_AvgHsp")
+```
+
+
+
+```{r fig.height=7}
+# Unrotated PCA (PRCOMP FUNCTION) (ONLY to find # of principal components)
+test_state_PCA = test_state_data %>%
+  column_to_rownames("stateabb")
+test_state_PCA = test_state_PCA[-52,c(-1,-2)]
+
+pcr_model = prcomp(test_state_PCA, scale=TRUE)
+biplot(pcr_model, scale=0, cex=.7)
+
+# Determining number of components using Kaiser's Rule
+pcr_model$sdev^2
+screeplot(pcr_model, type="line")
+```
+
+```{r fig.height=7}
+# UNROTATED PCA and plot for pooled data (PRINCIPAL FUNCTION)
+princ_model_unrot = principal(test_state_PCA, nfactors=5, rotate="none")
+
+# Loadings from unrotated PCA
+princ_model_unrot$loadings
+
+# Scores from unrotated PCA
+# princ_model_unrot$scores
+```
+
+```{r fig.height=7}
+# ROTATED PCA and plot for pooled data (PRINCIPAL FUNCTION)
+princ_model_rot = principal(test_state_PCA, nfactors=5, rotate="varimax")
+
+# Loadings from rotated PCA
+princ_model_rot$loadings
+
+# Scores from rotated PCA
+# princ_model_rot$scores 
+
+par(mfrow=c(1,1))
+biplot.psych(princ_model_rot, labels=rownames(test_state_PCA))
+biplot.psych(princ_model_rot, labels=rownames(test_state_PCA), choose = c(1,2))
+biplot.psych(princ_model_rot, labels=rownames(test_state_PCA), choose = c(5,2))
+```
+
+```{r fig.height=7}
+# Graphical display of loadings from rotated PCA
+as.data.frame(princ_model_rot$loadings[]) %>%
+  rownames_to_column("terms") %>% 
+  pivot_longer(2:6, names_to = "component", values_to = "value") %>% 
+  mutate(terms = reorder_within(terms, abs(value), component)) %>% 
+ggplot(aes(value, terms, fill = terms)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ component, scales = "free_y", nrow = 1) +
+  scale_y_reordered() +
+  labs(y = NULL) +
+  theme(axis.text = element_text(size = 7))
+```
+
+```{r}
+# Plugging in the results from the rotated PCA into a linear regression
+princ_lm = lm(AvgTestScore~ princ_model_rot$scores[,1] + princ_model_rot$scores[,2] + princ_model_rot$scores[,3] +
+              princ_model_rot$scores[,4] + princ_model_rot$scores[,5], data = test_state_data[-52, -c(1,2)])
+summary(princ_lm)
+
+# Again checking for multicollinearity to make sure it's improved
+vif(princ_lm)
+
+# Residual Plots 
+par(mfrow = c(2, 2)) 
+plot(princ_lm)
+```
+
+
+
+```{r fig.height=7}
+race_diversity_SES = state_info[-52,-c(1,3:7,12:13,15:25,28:30,32:34,36:38,40:42,44:46,48:53,55:57)]
+corr_data = pooled_test_data %>% filter(subcat == "all") %>% 
+  select(c("stateabb", "gcs_mn_avg_ol")) %>%
+  inner_join(race_diversity_SES, by = c("stateabb"))
+
+colnames(corr_data) = c("stateabb", "AvgTestScore", "PerAsian", "PerHsp","PerBlk", "PerWht", "PerFreeLunch", "SegDevWhtBlk","SegDevWhtHsp","SegDevECD", "PerECD","BachAvg","PovertyAvg","UnempAvg","SnapBenAvg","SingleMomAvg","SES_AvgAll","MedIncome")
+
+# Correlation Plot
+corrplot(cor(corr_data[,-1]), method="circle", type = "lower",tl.col = "black", tl.srt = 45,
+         title = "Correlation Plot for Racial and Socioeconomic Variables", mar=c(0,0,1,0), order = "FPC")
+
+# Function to calculate the p-values for the correlations
+cor.mtest <- function(mat, ...) {
+    mat <- as.matrix(mat)
+    n <- ncol(mat)
+    p.mat<- matrix(NA, n, n)
+    diag(p.mat) <- 0
+    for (i in 1:(n - 1)) {
+        for (j in (i + 1):n) {
+            tmp <- cor.test(mat[, i], mat[, j], ...)
+            p.mat[i, j] <- p.mat[j, i] <- tmp$p.value
+        }
+    }
+  colnames(p.mat) <- rownames(p.mat) <- colnames(mat)
+  p.mat
+}
+# matrix of the p-value of the correlation
+p.mat <- cor.mtest(corr_data[,-1])
+
+# Correlation plots with p-value
+corrplot(cor(corr_data[,-1]), method="circle", type = "lower",tl.col = "black", tl.srt = 45, 
+         p.mat = p.mat, sig.level = 0.01, insig = "blank",
+         title = "Significant Correlations Only", mar=c(0,1,1,0), order = "FPC")
+```
+
+
+
+
