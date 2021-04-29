@@ -1,40 +1,39 @@
 ---
 title: "Project Code"
-output:
-  pdf_document: default
-  html_document:
-    df_print: paged
+output: pdf_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-library(tidyverse)
-library(ISLR)
-library(pls)
-library(glmnet)
-library(RColorBrewer)
-library(coefplot)
-library(car)
-library(psych)
-# library(devtools)
-# install_github("vqv/ggbiplot")
-library(ggbiplot)
-library(corrplot)
+```{r, echo=FALSE, message = FALSE}
+library("tidyverse")
+library("ISLR")
+library("pls")
+library("glmnet")
+library("RColorBrewer")
+library("coefplot")
+library("car")
+library("psych")
+library("ggbiplot")
+library("corrplot")
+library("tidymodels")
+library("tidytext")
+library("ggrepel")
 ```
 
 We will start by just manually looking at a condensed version of the data, sorted in ascending order by math test scores, and write down any trends we see so we know what to look for in the actual analyses.
+
 ```{r message = FALSE}
 # Arranging test scores (math and reading) from highest to lowest for each state for comparison with other variables (just by looking at data)
 test_data = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_state_poolsub_gcs_4.0.csv")
 state_info = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_cov_state_pool_4.0.csv")
 
 state_info_condensed = state_info %>% 
-  select(c(1:11, 14, 17:26, 47:50))
+  select(1:11, 14, 17:26, 47:50)
 test_state_data_mth_rla = test_data %>% filter(subcat == "all") %>% 
-  select(c("fips", "stateabb", "gcs_mn_avg_mth_ol", "gcs_mn_avg_rla_ol")) %>%
+  select(fips, stateabb, gcs_mn_avg_mth_ol, gcs_mn_avg_rla_ol) %>%
   inner_join(state_info_condensed, by = c("fips", "stateabb")) %>% 
   arrange(gcs_mn_avg_mth_ol)
 ```
+
 Just some initial trends we are seeing (specifically for math scores, although easy to see that reading is very similar):
 * Higher percent of whites (asian?) in state have higher test scores; Higher percent of other races in state have lower test scores
 * Higher percent of ECD in state have lower test scores
@@ -43,6 +42,7 @@ Just some initial trends we are seeing (specifically for math scores, although e
 * Possibly higher hswhtblk/rswhtblk (diversity/segregation measure of schools) means lower scores? (less obvious)
 
 Since math and reading test scores had such similar results in some of our other code files ("Mainly_PCA_Code" which is not what we are using anymore), we will pool math and reading test scores so that we don't have to do all the analyses twice only to get the same results.
+
 ```{r message = FALSE}
 # Original pooled data to combine
 pooled_test_data = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_state_pool_gcs_4.0.csv")
@@ -50,26 +50,30 @@ state_info = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_c
 ```
 
 We first pool the data and manually select only the variables we specifically intend to study. Note that the SES variables are computed based on several other variables (prop. of adults with a bachelor degree or higher, prop. of households below poverty line, prop. unemployed, prop. households receiving snap benefits, prop. households headed by a single mother, and log median income), so for this linear regression and PCA, we will only use the variables giving the SES rating and not include the variables used in that SES calculation (perhaps after this analyses we can use those for a different analysis)
+
 ```{r}
 # Condensed pooled data
 state_info_condensed = state_info %>% 
-  select(c(1:11, 14, 17:26, 47:50))
+  select(1:11, 14, 17:26, 47:50)
 test_state_data = pooled_test_data %>% filter(subcat == "all") %>% 
-  select(c("fips", "stateabb", "gcs_mn_avg_ol")) %>%
+  select(fips, stateabb, gcs_mn_avg_ol) %>%
   inner_join(state_info_condensed, by = c("fips", "stateabb"))
-colnames(test_state_data) = c("fips","stateabb", "AvgTestScore","Urban","Suburb","Town","Rural","PerIndian", 
-                              "PerAsian", "PerHsp","PerBlk", "PerWht", "PerFreeLunch","TotEnroll", 
-                              "SegDevWhtBlk","SegDevWhtHsp","SegDevFreeLun","SegDevECD","DiffExpWhtBlk","DiffExpWhtHsp",
-                              "DiffExpFreeLun","DiffExpECD", "PerECD","SES_AvgAll","SES_AvgWht","SES_AvgBlk","SES_AvgHsp")
+colnames(test_state_data) = c("fips", "stateabb", "AvgTestScore", "Urban", "Suburb", 
+                              "Town", "Rural", "PerIndian", "PerAsian", "PerHsp", "PerBlk", 
+                              "PerWht", "PerFreeLunch", "TotEnroll", "SegDevWhtBlk", 
+                              "SegDevWhtHsp", "SegDevFreeLun", "SegDevECD", "DiffExpWhtBlk", 
+                              "DiffExpWhtHsp", "DiffExpFreeLun", "DiffExpECD", "PerECD", 
+                              "SES_AvgAll", "SES_AvgWht", "SES_AvgBlk", "SES_AvgHsp")
 ```
 
 We will now run a linear regression to see what the most significant variables are in calculating test scores and what the associated coefficients are so we can understand how these significant variables affect test score.
+
 ```{r}
 # lm model for pooled data
 lm_model = lm(AvgTestScore ~ ., data = test_state_data[, -c(1,2)])
 summary(lm_model)
 
-# Get the average pooled test score for asians
+# Get the average pooled test score for Asians
 pooled_test_data %>% filter(subcat == "race",
                             subgroup == "asn",
                             stateabb != "PR") %>% 
@@ -83,16 +87,15 @@ pooled_test_data %>%
   group_by(subcat, subgroup) %>% 
   summarize(overall = mean(gcs_mn_avg_ol))
 
-# Checking for multicollinearity since p-values are all highly insignificant
-# vif(lm_model)
-# alias(lm_model)
 ```
+
 From the linear regression above, we are seeing that every variable is highly insignificant except percent asian which has a negative coefficient (as percent asian increases, average test score decreases). Percent asian is likely significant because the average asian score is 7, compared to the overall average of 5.5. Most states have relatively low asian populations, with 49 states and DC being below 10%. However, HI has a 56.8% asian population and the second lowest asian score of 5, with the next highest being 5.5.
 
 Not too sure why percent asian in particular is the only one significant, but this model is highly unreliable and uninterpretable given the multicollinearity of the data. We can prove that we have severe multicollinearity in the data by using the `vif` function. From `vif(lm_model)` we get the error "there are aliased coefficients in the model" which indicates that there is perfect multicollinearity since we are getting this error and not actual vif values. To see which variables have perfect multicollinearity, we use `alias(lm_model)` and obviously see that rural, urban, suburb, and town are perfectly correlated and so is percent white, percent native american, percent asian, percent hispanic, and percent black which all makes sense since these are proportions which roughly add to be 100%.
 
 
-To improve this multicollinearity, we use principal component analysis (PCA) so that we can then use the results in another linear regression so we can actually make some interpretations. The first PCA (using the `prcomp` function) is essentially ONLY to find the number of principal components we should use in the `principal` function since this is the function that will be able to do varimax rotation for us. 
+To improve this multicollinearity, we use principal component analysis (PCA) so that we can then use the results in another linear regression so we can actually make some interpretations. The first PCA (using the `prcomp` function) is essentially ONLY to find the number of principal components we should use in the `principal` function since this is the function that will be able to do varimax rotation for us.
+
 ```{r fig.height=7}
 # Unrotated PCA (PRCOMP FUNCTION) (ONLY to find # of principal components)
 test_state_PCA = test_state_data %>%
@@ -109,7 +112,6 @@ stats::screeplot(pcr_model, type="line")
 
 Kaiser's Rule states that we should keep the components which have eigenvalues greater than 1. Thus we keep the first 5 components since we can see the only the first 5 values in `pcr_model$sdev^2` are greater than 1. The scree plot visualizes this as well since the variance levels out after 5 components so we only want the first 5. We could've instead chosen 11 components since this would explain 95% of the original variance in the data (which is typically ideal), however 11 components is quite a bit to interpret so we decided to go with Kaiser's Rule so we would have less components.
 
-*FIGURE 1*
 ```{r fig.height=7}
 # The same PCA but now making it so we can color the plot according to which region the US state is located
 us_regions = read.csv("./states.csv")
@@ -130,42 +132,32 @@ ggbiplot(pcr_model2, ellipse=TRUE,  labels=rownames(test_state_PCA2), groups=tes
 In the above figure, small angles between arrows  indicate a strong positive correlation between those variables, right angles indicate a lack of correlation between variables, and large angles (such as 180 degrees)  indicate a strong negative correlation between variables. Therefore, perecd looks to be strongly correlated with perblk in the state; meanwhile these two appear to be strongly negatively correlated with the average socioeconomic status rating of people in a state. Southern states appear to have a higher proportion of economically disadvantaged/black people in the state and a lower average socioeconomic rating. Western or northeast states seem to typically have a higher average socioeconomic rating and a lower proportion of these groups. Similar other interpretations like this can be made based on these angles/region colors.
 
 Now we will use the `principal` function so that we can do further analysis such as varimax rotation. We will first analyze the unrotated data using the principal function and then rotate for better interpretability and also so we can use these results in the linear regression later.
-```{r fig.height=7}
+
+```{r fig.height=7, warning = FALSE}
 # UNROTATED PCA and plot for pooled data (PRINCIPAL FUNCTION)
 princ_model_unrot = principal(test_state_PCA, nfactors=5, rotate="none")
 
 # Loadings from unrotated PCA
 princ_model_unrot$loadings
-
-# Scores from unrotated PCA
-# princ_model_unrot$scores
 ```
 We can see from the `princ_model_unrot$loadings` code that there are not very well defined groups in each principal component (typically you want similarly related variables to be in the same principal component as each other). Therefore, to improve interpretability by hoping getting more distinct principal components and to be able to use this PCA in a linear regression, we use varimax rotation:
-```{r fig.height=7}
+```{r fig.height=7, warning = FALSE}
 # ROTATED PCA and plot for pooled data (PRINCIPAL FUNCTION)
 princ_model_rot = principal(test_state_PCA, nfactors=5, rotate="varimax")
 
 # Loadings from rotated PCA
 princ_model_rot$loadings
 
-# Scores from rotated PCA
-# princ_model_rot$scores 
-
-#library("ggplot2")
-#library("ggfortify")
-
-#autoplot(prcomp(data = princ_model_rot, scale=TRUE), label = FALSE, loadings.label = TRUE)
-
-#ggfortify::ggbiplot(plot.data = princ_model_rot)
-
 par(mfrow=c(1,1))
 biplot.psych(princ_model_rot, labels=rownames(USArrests))
 biplot.psych(princ_model_rot, labels=rownames(test_state_PCA), choose = c(1,2))
 biplot.psych(princ_model_rot, labels=rownames(test_state_PCA), choose = c(5,2))
 ```
+
 We can now see from the code `princ_model_rot$loadings` that there are slightly better defined principal components that consist of more distinct "groups" of variables. For example, the first principal component differs from the others by including more information about the school such as the diversity indexes. The second principal component differs from the rest by narrowing in on race/economically disadvantaged components. The third is a bit of a combination of groups such as rural/urban/etc. composition, some racial aspects, some diversity/school aspects, etc. As so on for the other two principal components.
 
 We now plug in the scores from the rotated PCA above into a linear regression so that we are able to see which principal components contribute significantly to test scores. Using this information, we will then be able to make further analyses by examining from `princ_model_rot$loadings` what variables were included in those significant principal components and how those variables are correlated. Based off of this, we will look at if the corresponding coefficient in the linear regression is positive or negative and thus see how those variables affect test scores.
+
 ```{r}
 # Plugging in the results from the rotated PCA into a linear regression
 princ_lm = lm(AvgTestScore~ princ_model_rot$scores[,1] + princ_model_rot$scores[,2] + princ_model_rot$scores[,3] +
@@ -175,6 +167,7 @@ summary(princ_lm)
 # Again checking for multicollinearity to make sure it's improved
 vif(princ_lm)
 ```
+
 We can see that the maximum VIF value now is 3.17 which indicates that collinearity is no longer a serious issue since values of 5 to 10 are problematic. Additionally, we can see from the linear regression summary output that principal components 2 and 5 are significant, with component 3 being just barely insignificant. 
 
 *INTERPRETATIONS FOR PCA AND LINEAR REGRESSION*
@@ -185,6 +178,7 @@ Side note: The hs- variables are defined as "the average deviation of each stude
 Component 5 from `princ_model_rot$loadings` (significant but much less than comp. 2): the negative entries are suburb, town, rural, percent hsp/wht, total enrollment, hswhtblk, and rswhthsp. Meanwhile, these are being contrasted with urban, percent indian/asian/blk, and SES all/wht/blk/hsp. From the linear regression, we can see that this component also has a negative coefficient (though this coefficient is almost 0 as it is about -0.04). This indicates that the negative entries in `princ_model_rot$loadings` are slightly positively correlated to test scores since they have the same sign as the coefficient, while the positive entries are slightly negatively correlated with test scores since they have the opposite sign of the coefficient. Therefore, we are seeing in this component that the percent of white/hispanic are positively correlated with more suburb/town/rural schools and with those "segregation" levels which are slightly positively correlated with test scores? Meanwhile urban, percent asian/indian/black, total enrollment, and all SES ratings are all positively correlated with each other, but slightly negatively correlated with test scores? I'm not really sure how to interpret this since the coefficient is as small as it is, so there is such little change in the test score from this component and the results don't really make intuitive sense to me? Confusing since it still has a slightly significant p-value.
 
 From all the above results, it does seem as though there is a connection between race, socioeconomic status, and test scores. Therefore, it may be a good idea to look at what variables were actually used to calculate these SES ratings and then look at how these variables, race variables, and the test scores are correlated:
+
 ```{r fig.height=7}
 race_diversity_SES = state_info[-52,-c(1,3:7,12:13,15:17,20,22:25,28:30,32:34,36:38,40:42,44:46,48:53,55:57)]
 corr_data = pooled_test_data %>% filter(subcat == "all") %>% 
@@ -212,11 +206,11 @@ cor.mtest <- function(mat, ...) {
   colnames(p.mat) <- rownames(p.mat) <- colnames(mat)
   p.mat
 }
+
 # matrix of the p-value of the correlation
 p.mat <- cor.mtest(corr_data[,-1])
 
 # Correlation plots with p-value
-# corrplot(cor(corr_data[,-1]), method="circle", type = "lower",tl.col = "black", tl.srt = 45, p.mat = p.mat, sig.level = 0.01)
 corrplot(cor(corr_data[,-1]), method="circle", type = "lower",tl.col = "black", tl.srt = 45, 
          p.mat = p.mat, sig.level = 0.01, insig = "blank",
          title = "Significant Correlations Only", mar=c(0,1,1,0))
@@ -224,22 +218,18 @@ corrplot(cor(corr_data[,-1]), method="circle", type = "lower",tl.col = "black", 
 
 From the correlation plots above, it is very clear how the various races differ in their correlation with socioeconomic factors/test scores and how socioeconomic variables are correlated with the diversity/segregation levels of school. Specifically, we can see that white people and black people drastically differ in correlation to these socioeconomic/test score variables, while it also appears that hispanic people are closer to black people in socioeconomic status, though the correlations for hispanic people are not nearly as extreme (and often insignificant). Asian people also do not have many significant correlations either. Definitely seems like more evidence of major inequalities (especially between white people and black people though) and how these are correlated with test score. 
 
-```{r}
+```{r, warning = FALSE}
 # PCA using tidymodels
-library("tidymodels")
-library("tidytext")
-library("ggrepel")
-
 
 pooled_test_data = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_state_pool_gcs_4.0.csv")
 state_info = read_csv("https://stacks.stanford.edu/file/druid:db586ns4974/seda_cov_state_pool_4.0.csv")
 
 # Condensed pooled data
 state_info_condensed = state_info %>% 
-  select(c(1:11, 14, 17:26, 47:50))
+  select(1:11, 14, 17:26, 47:50)
 
 test_state_data = pooled_test_data %>% filter(subcat == "all") %>% 
-  select(c("fips", "stateabb", "gcs_mn_avg_ol")) %>%
+  select(fips, stateabb, gcs_mn_avg_ol) %>%
   inner_join(state_info_condensed, by = c("fips", "stateabb"))
 
 colnames(test_state_data) = c("fips","stateabb", "AvgTestScore","Urban","Suburb","Town","Rural","PerIndian", 
@@ -337,8 +327,7 @@ strongly correlated. Note that in PC2, HI appears to be an outlier. This is like
 of SES, which HI has an unusually high value for, despite their low test scores. When plotting SES against 
 test scores, we can see that the graph is very similar to that of PC2 against test scores.
 
-```{r}
-library("psych")
+```{r, warning = FALSE}
 test_state_PCA_R = test_state_PCA %>% column_to_rownames("stateabb") %>% 
   select(-AvgTestScore)
 
@@ -347,14 +336,8 @@ princ_model_unrot = principal(test_state_PCA_R, nfactors=5, rotate="none")
 # Loadings from unrotated PCA
 princ_model_unrot$loadings
 
-# Scores from unrotated PCA
-# princ_model_unrot$scores
-
 # ROTATED PCA and plot for pooled data (PRINCIPAL FUNCTION)
 princ_model_rot = principal(test_state_PCA_R, nfactors=5, rotate="varimax", scores = TRUE)
-
-# Loadings from rotated PCA
-
 
 # Plot the composition of the RCs, ordered by decreasing absolute value
 as.data.frame(princ_model_rot$loadings[]) %>%
