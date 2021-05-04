@@ -61,7 +61,14 @@ ui <- fluidPage(
       
       p("State test scores are plotted for the selected test and factor. Hover over a point 
         to see its exact values. Click on values in the legend to display data for only certain groups. 
-        The red bar represents the expected average score of the standardized test (5.5).")
+        The red bar represents the expected average score of the standardized test (5.5)."),
+      
+      HTML("<br><br>"),
+      
+      p("The data used was retrieved from:"),
+      
+      p("Reardon, S. F., Ho, A. D., Shear, B. R., Fahle, E. M., Kalogrides, D., 
+        Jang, H., & Chavez, B. (2021). Stanford Education Data Archive (Version 4.0). Retrieved from http://purl.stanford.edu/db586ns4974.")
     )
     
   )
